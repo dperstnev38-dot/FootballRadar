@@ -2,6 +2,7 @@ package com.footballradar.app.ui.settings
 
 import android.net.Uri
 import com.footballradar.app.data.update.AppUpdate
+import com.footballradar.app.data.update.ReleaseInfo
 
 sealed interface UpdateUiState {
     data object Idle : UpdateUiState
@@ -10,9 +11,14 @@ sealed interface UpdateUiState {
 
     data object Checking : UpdateUiState
 
-    data object UpToDate : UpdateUiState
+    data class UpToDate(val releaseInfo: ReleaseInfo) : UpdateUiState
 
-    data class UpdateAvailable(val update: AppUpdate) : UpdateUiState
+    data class CachedReleaseInfo(val releaseInfo: ReleaseInfo) : UpdateUiState
+
+    data class UpdateAvailable(
+        val update: AppUpdate,
+        val releaseInfo: ReleaseInfo,
+    ) : UpdateUiState
 
     data class Downloading(
         val downloadedBytes: Long,

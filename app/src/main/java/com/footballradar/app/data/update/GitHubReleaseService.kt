@@ -2,6 +2,7 @@ package com.footballradar.app.data.update
 
 import com.google.gson.Gson
 import com.google.gson.JsonParseException
+import com.google.gson.JsonObject
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
@@ -24,7 +25,19 @@ class GitHubReleaseService(
             .build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
-                throw IOException("GitHub Releases вернул HTTP ${response.code}")
+                val errorBody = response.body?.string()
+                val apiMessage = errorBody
+                    ?.let { body ->
+                        runCatching {
+                            gson.fromJson(body, JsonObject::class.java)
+                                ?.get("message")
+                                ?.takeIf { it.isJsonPrimitive }
+                                ?.asString
+                        }.getOrNull()
+                    }
+                    ?.takeIf(String::isNotBlank)
+                    ?: response.message.ifBlank { "неизвестная причина" }
+                throw GitHubApiException(response.code, apiMessage)
             }
             val body = response.body?.string()
                 ?: throw IOException("GitHub Releases вернул пустой ответ")

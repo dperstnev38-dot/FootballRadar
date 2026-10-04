@@ -11,6 +11,7 @@ enum class MatchEventType {
     YELLOW_CARD,
     RED_CARD,
     SUBSTITUTION,
+    PENALTY,
 }
 
 enum class MatchTeam {
@@ -45,7 +46,12 @@ data class FootballMatch(
     val awayTeam: String,
     val homeScore: Int? = null,
     val awayScore: Int? = null,
-    val homeShotsOnTarget: Int = 0,
-    val awayShotsOnTarget: Int = 0,
+    val homeShotsOnTarget: Int? = null,
+    val awayShotsOnTarget: Int? = null,
     val events: List<MatchEvent> = emptyList(),
+    val homeTeamLogoUrl: String? = null,
+    val awayTeamLogoUrl: String? = null,
+    val statisticsLoaded: Boolean = false,
+    val homeTeamId: String? = null,
+    val awayTeamId: String? = null,
 )

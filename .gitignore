@@ -19,8 +19,10 @@ local.properties
 *.pfx
 *.pem
 *.key
+/keys/
 key.properties
 keystore.properties
+signing.properties
 secrets.properties
 .env
 .env.*

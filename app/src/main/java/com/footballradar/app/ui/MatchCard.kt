@@ -15,6 +15,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import coil.compose.AsyncImage
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +35,9 @@ import com.footballradar.app.ui.theme.TextSecondary
 @Composable
 fun MatchCard(
     match: FootballMatch,
+    onLoadStatistics: () -> Unit = {},
+    statisticsLoading: Boolean = false,
+    statisticsError: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalAppThemeColors.current
@@ -66,8 +71,8 @@ fun MatchCard(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    TeamRow(name = match.homeTeam)
-                    TeamRow(name = match.awayTeam)
+                    TeamRow(name = match.homeTeam, logoUrl = match.homeTeamLogoUrl)
+                    TeamRow(name = match.awayTeam, logoUrl = match.awayTeamLogoUrl)
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(
@@ -94,6 +99,44 @@ fun MatchCard(
                         EventChip(event)
                     }
                 }
+
+            }
+
+            if (match.statisticsLoaded) {
+                val shotsText = if (
+                    match.homeShotsOnTarget == null && match.awayShotsOnTarget == null
+                ) {
+                    "Удары в створ: недоступно"
+                } else {
+                    "Удары в створ: ${match.homeShotsOnTarget ?: "—"} — " +
+                        (match.awayShotsOnTarget ?: "—")
+                }
+                Text(
+                    text = shotsText,
+                    modifier = Modifier.padding(top = 12.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                )
+            }
+            TextButton(
+                onClick = onLoadStatistics,
+                enabled = !statisticsLoading,
+                modifier = Modifier.padding(top = 4.dp),
+            ) {
+                Text(
+                    when {
+                        statisticsLoading -> "Обновляем данные…"
+                        match.statisticsLoaded -> "Обновить события и статистику"
+                        else -> "События и статистика матча"
+                    },
+                )
+            }
+            statisticsError?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.live,
+                )
             }
         }
     }
@@ -119,12 +162,14 @@ private fun MatchTime(match: FootballMatch) {
                 fontWeight = FontWeight.Bold,
                 color = colors.live,
             )
-            Text(
-                text = "${match.minute ?: 0}′",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = colors.live,
-            )
+            match.minute?.let { minute ->
+                Text(
+                    text = "$minute′",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.live,
+                )
+            }
         }
         MatchStatus.UPCOMING -> Text(
             text = match.kickoff,
@@ -142,7 +187,7 @@ private fun MatchTime(match: FootballMatch) {
 }
 
 @Composable
-private fun TeamRow(name: String) {
+private fun TeamRow(name: String, logoUrl: String?) {
     val colors = LocalAppThemeColors.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -155,12 +200,21 @@ private fun TeamRow(name: String) {
                 .background(Color.White.copy(alpha = 0.08f)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = name.firstOrNull()?.uppercase() ?: "•",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = TextSecondary,
-            )
+            if (logoUrl.isNullOrBlank()) {
+                Text(
+                    text = name.firstOrNull()?.uppercase() ?: "•",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextSecondary,
+                )
+            } else {
+                AsyncImage(
+                    model = logoUrl,
+                    contentDescription = "$name logo",
+                    modifier = Modifier.size(30.dp),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                )
+            }
         }
         Text(
             text = name,
@@ -197,6 +251,7 @@ private fun EventChip(event: com.footballradar.app.domain.model.MatchEvent) {
             MatchEventType.YELLOW_CARD -> CardMarker(Color(0xFFFFC857))
             MatchEventType.RED_CARD -> CardMarker(colors.live)
             MatchEventType.SUBSTITUTION -> Text("↔", color = TextSecondary)
+            MatchEventType.PENALTY -> Text("⚽", style = MaterialTheme.typography.labelSmall)
         }
         Text(
             text = buildString {

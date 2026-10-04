@@ -61,6 +61,34 @@ class RadarEngineTest {
         assertEquals(events, engine.update(updatedMatches))
     }
 
+    @Test
+    fun doesNotTreatUnavailableShotCountsAsZeroOnInitialStatisticsLoad() {
+        val engine = RadarEngine()
+        val withoutStatistics = match(
+            id = "live-match",
+            home = "Home",
+            away = "Away",
+            homeScore = 0,
+            awayScore = 0,
+            homeShots = null,
+        ).copy(awayShotsOnTarget = null)
+        engine.seed(listOf(withoutStatistics))
+
+        val firstStatistics = withoutStatistics.copy(
+            homeShotsOnTarget = 3,
+            awayShotsOnTarget = 2,
+            statisticsLoaded = true,
+        )
+        assertEquals(emptyList<RadarEvent>(), engine.update(listOf(firstStatistics)))
+
+        val laterStatistics = firstStatistics.copy(
+            homeShotsOnTarget = 4,
+            awayShotsOnTarget = 3,
+        )
+        val events = engine.update(listOf(laterStatistics))
+        assertEquals(listOf(3), events.mapNotNull { it.shotsOnTarget })
+    }
+
     private val previousMatches = listOf(
         match(
             id = "arsenal-city",
@@ -117,7 +145,8 @@ class RadarEngineTest {
         away: String,
         homeScore: Int,
         awayScore: Int,
-        homeShots: Int,
+        homeShots: Int?,
+        awayShots: Int? = 0,
         events: List<MatchEvent> = emptyList(),
     ) = FootballMatch(
         id = id,
@@ -130,6 +159,7 @@ class RadarEngineTest {
         homeScore = homeScore,
         awayScore = awayScore,
         homeShotsOnTarget = homeShots,
+        awayShotsOnTarget = awayShots,
         events = events,
     )
 }

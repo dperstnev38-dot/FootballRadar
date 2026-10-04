@@ -164,7 +164,24 @@ private fun MainScreenContent(
                     uiState.loadStatus == MatchLoadStatus.LOADING -> LoadingState()
                     uiState.loadStatus == MatchLoadStatus.ERROR ->
                         MessageState(
-                            title = "Не удалось загрузить матчи",
+                            title = if (
+                                uiState.errorMessage?.contains(
+                                    "Футбольный API не настроен",
+                                    ignoreCase = true,
+                                ) == true ||
+                                uiState.errorMessage?.contains(
+                                    "футбольного API",
+                                    ignoreCase = true,
+                                ) == true
+                                || uiState.errorMessage?.contains(
+                                    "PitchAPI не настроен",
+                                    ignoreCase = true,
+                                ) == true
+                            ) {
+                                "PitchAPI не настроен"
+                            } else {
+                                "Не удалось загрузить матчи"
+                            },
                             message = uiState.errorMessage ?: "Попробуйте ещё раз позже",
                         )
                     uiState.destination == MainDestination.RADAR -> {
@@ -187,12 +204,27 @@ private fun MainScreenContent(
                             )
                         }
                     }
-                    filteredMatches.isEmpty() -> MessageState(
-                        title = "Матчей пока нет",
-                        message = "Попробуйте выбрать другой фильтр",
-                    )
+                    filteredMatches.isEmpty() -> {
+                        val isLiveFilter = uiState.selectedFilter == MatchFilter.ALL ||
+                            uiState.selectedFilter == MatchFilter.LIVE
+                        MessageState(
+                            title = if (isLiveFilter) {
+                                "Сейчас нет матчей в эфире"
+                            } else {
+                                "Матчей по этому фильтру нет"
+                            },
+                            message = if (isLiveFilter) {
+                                "Новые LIVE-матчи появятся здесь автоматически"
+                            } else {
+                                "Попробуйте выбрать другой фильтр"
+                            },
+                        )
+                    }
                     else -> MatchList(
                         matches = filteredMatches,
+                        statisticsLoadingMatchIds = uiState.statisticsLoadingMatchIds,
+                        statisticsErrorsByMatchId = uiState.statisticsErrorsByMatchId,
+                        onLoadStatistics = viewModel::loadMatchStatistics,
                         modifier = Modifier.widthIn(max = 720.dp),
                     )
                 }
@@ -345,6 +377,9 @@ private fun FilterBar(
 @Composable
 private fun MatchList(
     matches: List<FootballMatch>,
+    statisticsLoadingMatchIds: Set<String>,
+    statisticsErrorsByMatchId: Map<String, String>,
+    onLoadStatistics: (FootballMatch) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -353,7 +388,12 @@ private fun MatchList(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(matches, key = { it.id }) { match ->
-            MatchCard(match = match)
+            MatchCard(
+                match = match,
+                onLoadStatistics = { onLoadStatistics(match) },
+                statisticsLoading = match.id in statisticsLoadingMatchIds,
+                statisticsError = statisticsErrorsByMatchId[match.id],
+            )
         }
     }
 }

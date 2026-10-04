@@ -31,4 +31,6 @@ data class FootballRadarUiState(
     val isSearchVisible: Boolean = false,
     val loadStatus: MatchLoadStatus = MatchLoadStatus.CONTENT,
     val errorMessage: String? = null,
+    val statisticsLoadingMatchIds: Set<String> = emptySet(),
+    val statisticsErrorsByMatchId: Map<String, String> = emptyMap(),
 )

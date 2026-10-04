@@ -8,4 +8,7 @@ interface MatchRepository {
     fun getMatches(): List<FootballMatch>
 
     suspend fun fetchMatches(): MatchDataState = MatchDataState.Success(getMatches())
+
+    suspend fun fetchMatchStatistics(matchId: String): MatchStatisticsState =
+        MatchStatisticsState.Error("Статистика матча недоступна")
 }

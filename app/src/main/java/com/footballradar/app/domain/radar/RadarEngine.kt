@@ -78,13 +78,13 @@ private class ShotsOnTargetRule : RadarRule {
             addThresholdEvents(
                 match = current,
                 team = MatchTeam.HOME,
-                previousCount = previous?.homeShotsOnTarget ?: 0,
+                previousCount = previous?.homeShotsOnTarget,
                 currentCount = current.homeShotsOnTarget,
             )
             addThresholdEvents(
                 match = current,
                 team = MatchTeam.AWAY,
-                previousCount = previous?.awayShotsOnTarget ?: 0,
+                previousCount = previous?.awayShotsOnTarget,
                 currentCount = current.awayShotsOnTarget,
             )
         }
@@ -92,9 +92,10 @@ private class ShotsOnTargetRule : RadarRule {
     private fun MutableList<RadarEvent>.addThresholdEvents(
         match: FootballMatch,
         team: MatchTeam,
-        previousCount: Int,
-        currentCount: Int,
+        previousCount: Int?,
+        currentCount: Int?,
     ) {
+        if (previousCount == null || currentCount == null) return
         for (threshold in SHOT_THRESHOLDS) {
             if (previousCount < threshold && currentCount >= threshold) {
                 add(

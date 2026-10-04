@@ -23,6 +23,12 @@ class VersionComparatorTest {
         assertEquals(0, VersionComparator.compare("1.2.3+build.7", "v1.2.3+release"))
     }
 
+    @Test
+    fun comparesFirstReleaseTagWithTheBuildVersionWithoutTreatingItAsAnUpdate() {
+        assertEquals(0, VersionComparator.compare("v1.0.0", "1.0.0"))
+        assertEquals(1, VersionComparator.compare("v1.0.1", "1.0.0"))
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun rejectsInvalidVersion() {
         VersionComparator.compare("1.x.0", "1.0.0")

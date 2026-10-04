@@ -38,10 +38,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.footballradar.app.data.update.AppUpdate
+import com.footballradar.app.data.update.ReleaseInfo
 import com.footballradar.app.domain.settings.ThemeColorSetting
 import com.footballradar.app.ui.theme.LocalAppThemeColors
 import com.footballradar.app.ui.theme.TextPrimary
 import com.footballradar.app.ui.theme.TextSecondary
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlinx.coroutines.flow.collectLatest
 
 private val ColorOptions = listOf(
@@ -211,7 +216,8 @@ private fun UpdateSection(
         )
         when (state) {
             UpdateUiState.Idle -> Text(
-                text = "Проверка обновлений выполняется автоматически не чаще раза в сутки.",
+                text = "Что нового\nОписание изменений отсутствует\n\n" +
+                    "Проверка обновлений выполняется автоматически не чаще раза в сутки.",
                 color = TextSecondary,
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -222,19 +228,31 @@ private fun UpdateSection(
             )
             UpdateUiState.Checking -> Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                Text("  Проверяем GitHub Releases…", color = TextSecondary)
+                Text("  Проверка обновлений…", color = TextSecondary)
             }
-            UpdateUiState.UpToDate -> Text(
-                text = "Установлена последняя версия.",
-                color = TextSecondary,
-                style = MaterialTheme.typography.bodySmall,
-            )
+            is UpdateUiState.UpToDate -> {
+                Text(
+                    text = "У вас установлена последняя версия.",
+                    color = TextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                ReleaseDetails(state.releaseInfo)
+            }
+            is UpdateUiState.CachedReleaseInfo -> {
+                Text(
+                    text = "Информация о последнем GitHub Release",
+                    color = TextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                ReleaseDetails(state.releaseInfo)
+            }
             is UpdateUiState.UpdateAvailable -> {
                 Text(
-                    text = "Доступна новая версия: ${state.update.newVersion}",
+                    text = "Доступно обновление: ${state.update.newVersion}",
                     color = colors.radarEvent,
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                ReleaseDetails(state.releaseInfo)
                 Button(onClick = { onDownload(state.update) }) {
                     Text("Обновить")
                 }
@@ -286,6 +304,46 @@ private fun UpdateSection(
             Text("Проверить обновления")
         }
     }
+}
+
+@Composable
+private fun ReleaseDetails(releaseInfo: ReleaseInfo) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = releaseInfo.title,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextPrimary,
+        )
+        Text(
+            text = "Версия релиза: ${releaseInfo.version}",
+            style = MaterialTheme.typography.bodySmall,
+            color = TextSecondary,
+        )
+        Text(
+            text = "Дата релиза: ${formatReleaseDate(releaseInfo.publishedAt)}",
+            style = MaterialTheme.typography.bodySmall,
+            color = TextSecondary,
+        )
+        Text(
+            text = "Что нового",
+            style = MaterialTheme.typography.labelLarge,
+            color = TextPrimary,
+        )
+        Text(
+            text = releaseInfo.notes ?: "Описание изменений отсутствует",
+            style = MaterialTheme.typography.bodySmall,
+            color = TextSecondary,
+        )
+    }
+}
+
+private fun formatReleaseDate(value: String?): String {
+    if (value.isNullOrBlank()) return "Не указана"
+    return runCatching {
+        Instant.parse(value)
+            .atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("ru")))
+    }.getOrDefault(value)
 }
 
 private fun openPackageInstaller(

@@ -11,6 +11,21 @@ data class AppUpdate(
     val newVersion: String,
     val releasePageUrl: String,
     val apkUrl: String,
+    val releaseTitle: String,
+    val releaseNotes: String?,
+    val publishedAt: String?,
+)
+
+data class UpdateCheckResult(
+    val releaseInfo: ReleaseInfo,
+    val update: AppUpdate?,
+)
+
+data class ReleaseInfo(
+    val version: String,
+    val title: String,
+    val notes: String?,
+    val publishedAt: String?,
 )
 
 class ReleaseUpdateRepository(
@@ -18,7 +33,7 @@ class ReleaseUpdateRepository(
     private val releaseService: GitHubReleaseService = GitHubReleaseService(repositoryName),
     private val downloadClient: OkHttpClient = downloadHttpClient,
 ) {
-    fun checkForUpdate(currentVersion: String): AppUpdate? {
+    fun checkForUpdate(currentVersion: String): UpdateCheckResult {
         check(REPOSITORY_PATTERN.matches(repositoryName)) {
             "Репозиторий обновлений не настроен (Gradle: githubReleasesRepository)"
         }
@@ -26,13 +41,24 @@ class ReleaseUpdateRepository(
         val latestVersion = release.tagName
             ?.takeIf(String::isNotBlank)
             ?: throw IOException("В GitHub Release отсутствует номер версии")
-        if (com.footballradar.app.domain.update.VersionComparator.compare(
+        val versionComparison = com.footballradar.app.domain.update.VersionComparator.compare(
                 latestVersion,
                 currentVersion,
-            ) <= 0
-        ) {
-            return null
+            )
+        if (versionComparison <= 0) {
+            val installedReleaseInfo = if (versionComparison == 0) {
+                release.toReleaseInfo()
+            } else {
+                ReleaseInfo(
+                    version = currentVersion,
+                    title = currentVersion,
+                    notes = null,
+                    publishedAt = null,
+                )
+            }
+            return UpdateCheckResult(installedReleaseInfo, update = null)
         }
+        val releaseInfo = release.toReleaseInfo()
         val apkUrl = release.assets.orEmpty()
             .firstOrNull { it.name.orEmpty().endsWith(".apk", ignoreCase = true) }
             ?.downloadUrl
@@ -40,12 +66,16 @@ class ReleaseUpdateRepository(
             ?: throw IOException("В новой версии GitHub Release отсутствует APK")
         val pageUrl = release.pageUrl?.takeIf(String::isNotBlank)
             ?: throw IOException("В GitHub Release отсутствует ссылка на страницу")
-        return AppUpdate(
+        val update = AppUpdate(
             currentVersion = currentVersion,
             newVersion = latestVersion,
             releasePageUrl = pageUrl,
             apkUrl = apkUrl,
+            releaseTitle = releaseInfo.title,
+            releaseNotes = releaseInfo.notes,
+            publishedAt = releaseInfo.publishedAt,
         )
+        return UpdateCheckResult(releaseInfo, update)
     }
 
     fun downloadApk(
@@ -88,9 +118,7 @@ class ReleaseUpdateRepository(
                         output.flush()
                     }
                 }
-                if (temporaryFile.length() == 0L) {
-                    throw IOException("Скачанный APK пуст")
-                }
+                validateDownloadedApk(temporaryFile, totalBytes)
             }
             if (destination.exists() && !destination.delete()) {
                 throw IOException("Не удалось заменить предыдущий APK")
@@ -109,11 +137,31 @@ class ReleaseUpdateRepository(
         val parsed = runCatching { java.net.URI(url) }.getOrNull() ?: return false
         val host = parsed.host?.lowercase() ?: return false
         return parsed.scheme == "https" &&
-            (host == "github.com" || host.endsWith(".githubusercontent.com"))
+            host == "github.com" &&
+            parsed.path.orEmpty().startsWith("/$repositoryName/releases/download/")
+    }
+
+    private fun validateDownloadedApk(file: File, expectedLength: Long) {
+        val actualLength = file.length()
+        if (actualLength == 0L) {
+            throw IOException("Скачанный APK пуст")
+        }
+        if (expectedLength >= 0L && actualLength != expectedLength) {
+            throw IOException("Скачанный APK неполный")
+        }
+        val signature = ByteArray(APK_ZIP_SIGNATURE.size)
+        file.inputStream().use { input ->
+            if (input.read(signature) != signature.size ||
+                !signature.contentEquals(APK_ZIP_SIGNATURE)
+            ) {
+                throw IOException("GitHub Release asset не является APK")
+            }
+        }
     }
 
     private companion object {
         const val BUFFER_SIZE = 16 * 1024
+        val APK_ZIP_SIGNATURE = byteArrayOf(0x50, 0x4b, 0x03, 0x04)
         val REPOSITORY_PATTERN = Regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
         val downloadHttpClient = OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
