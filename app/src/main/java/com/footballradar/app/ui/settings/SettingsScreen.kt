@@ -210,7 +210,7 @@ private fun UpdateSection(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
-            text = "Текущая версия: $currentVersion",
+            text = "Установлена версия: $currentVersion",
             style = MaterialTheme.typography.bodyMedium,
             color = TextPrimary,
         )

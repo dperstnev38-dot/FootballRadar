@@ -29,9 +29,9 @@ val releaseKeyAlias = localProperties.getProperty("releaseKeyAlias").orEmpty()
 val releaseKeyPassword = localProperties.getProperty("releaseKeyPassword").orEmpty()
 val appVersionCode = providers.gradleProperty("appVersionCode")
     .map(String::toInt)
-    .getOrElse(1)
+    .getOrElse(2)
 val appVersionName = providers.gradleProperty("appVersionName")
-    .orElse("1.0.0")
+    .orElse("1.0.1")
     .get()
 
 android {
